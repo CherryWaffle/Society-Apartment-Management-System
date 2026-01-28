@@ -23,11 +23,16 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', message: 'Society Management API is running' });
 });
 
-// Routes will be added here
-// app.use('/api/auth', authRoutes);
-// app.use('/api/admin', adminRoutes);
-// app.use('/api/board', boardRoutes);
-// app.use('/api/member', memberRoutes);
+// Routes
+import authRoutes from './routes/auth.routes.js';
+import adminRoutes from './routes/admin.routes.js';
+import boardRoutes from './routes/board.routes.js';
+import memberRoutes from './routes/member.routes.js';
+
+app.use('/api/auth', authRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/board', boardRoutes);
+app.use('/api/member', memberRoutes);
 
 // 404 handler
 app.use((req, res) => {
