@@ -27,7 +27,15 @@ export default function LoginScreen({ navigation }) {
       await login(email, password);
       // Navigation will be handled by App.js based on auth state
     } catch (error) {
-      Alert.alert('Login Failed', error.response?.data?.message || 'Invalid credentials');
+      const serverMsg = error?.response?.data?.message;
+      const isNetwork = !error?.response;
+      Alert.alert(
+        'Login Failed',
+        serverMsg ||
+          (isNetwork
+            ? 'Cannot reach backend API. Set EXPO_PUBLIC_API_URL to your PC IP and ensure backend is running.'
+            : 'Invalid credentials')
+      );
     } finally {
       setLoading(false);
     }

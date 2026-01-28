@@ -1,10 +1,12 @@
 import { storage } from '../utils/storage';
 
-// For development, use your computer's IP address or localhost
-// For production, use your deployed backend URL
-const API_BASE_URL = __DEV__ 
-  ? 'http://localhost:3000/api' // Change to your computer's IP if testing on device
-  : 'https://your-backend-url.com/api';
+// IMPORTANT:
+// - On a REAL PHONE, "localhost" points to the phone (not your PC), so requests never reach your backend.
+// - Set EXPO_PUBLIC_API_URL in `frontend-mobile/.env` to your PC IP, e.g.:
+//   EXPO_PUBLIC_API_URL=http://192.168.1.10:3000/api
+const API_BASE_URL =
+  process.env.EXPO_PUBLIC_API_URL ||
+  (__DEV__ ? 'http://localhost:3000/api' : 'https://your-backend-url.com/api');
 
 // Helper function to make API requests with fetch
 async function request(endpoint, options = {}) {

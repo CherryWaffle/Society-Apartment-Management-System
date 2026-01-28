@@ -6,6 +6,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import AdminDashboard from './pages/AdminDashboard';
 import BoardDashboard from './pages/BoardDashboard';
+import MemberWeb from './pages/MemberWeb';
 import './App.css';
 
 const queryClient = new QueryClient();
@@ -29,6 +30,10 @@ function DashboardRouter() {
     return <BoardDashboard />;
   }
 
+  if (user.role === 'MEMBER') {
+    return <MemberWeb />;
+  }
+
   return <Navigate to="/login" replace />;
 }
 
@@ -40,6 +45,33 @@ function App() {
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+
+            {/* Role-specific routes (direct links) */}
+            <Route
+              path="/admin"
+              element={
+                <ProtectedRoute allowedRoles={['SUPER_ADMIN']}>
+                  <AdminDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/board"
+              element={
+                <ProtectedRoute allowedRoles={['BOARD_MEMBER']}>
+                  <BoardDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/member"
+              element={
+                <ProtectedRoute allowedRoles={['MEMBER']}>
+                  <MemberWeb />
+                </ProtectedRoute>
+              }
+            />
+
             <Route
               path="/dashboard"
               element={
