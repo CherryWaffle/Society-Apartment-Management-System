@@ -1,5 +1,5 @@
 import express from 'express';
-import { supabase } from '../config/supabase.js';
+import { supabaseAdmin } from '../config/supabase.js';
 import { authenticate, requireRole } from '../middleware/auth.middleware.js';
 import Joi from 'joi';
 
@@ -29,7 +29,7 @@ const assignBoardMemberSchema = Joi.object({
  */
 router.get('/societies', async (req, res) => {
   try {
-    const { data: societies, error } = await supabase
+    const { data: societies, error } = await supabaseAdmin
       .from('societies')
       .select('id, name, address, city, pincode, total_units, created_at')
       .order('created_at', { ascending: false });
@@ -65,7 +65,7 @@ router.post('/societies', async (req, res) => {
     const { name, address, city, pincode, totalUnits } = value;
 
     // Get admin profile ID
-    const { data: profile } = await supabase
+    const { data: profile } = await supabaseAdmin
       .from('user_profiles')
       .select('id')
       .eq('user_id', req.user.id)
@@ -78,7 +78,7 @@ router.post('/societies', async (req, res) => {
       });
     }
 
-    const { data: society, error: createError } = await supabase
+    const { data: society, error: createError } = await supabaseAdmin
       .from('societies')
       .insert({
         name,
@@ -131,7 +131,7 @@ router.post('/societies/:societyId/board-members', async (req, res) => {
     const { boardMemberId, designation } = value;
 
     // Verify society exists
-    const { data: society } = await supabase
+    const { data: society } = await supabaseAdmin
       .from('societies')
       .select('id')
       .eq('id', societyId)
@@ -145,7 +145,7 @@ router.post('/societies/:societyId/board-members', async (req, res) => {
     }
 
     // Verify board member profile exists and has BOARD_MEMBER role
-    const { data: boardMember } = await supabase
+    const { data: boardMember } = await supabaseAdmin
       .from('user_profiles')
       .select('id, role')
       .eq('id', boardMemberId)
@@ -165,7 +165,7 @@ router.post('/societies/:societyId/board-members', async (req, res) => {
       });
     }
 
-    const { data: assignment, error: assignError } = await supabase
+    const { data: assignment, error: assignError } = await supabaseAdmin
       .from('society_board_members')
       .insert({
         society_id: societyId,

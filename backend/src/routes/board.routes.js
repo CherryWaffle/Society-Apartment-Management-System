@@ -1,5 +1,5 @@
 import express from 'express';
-import { supabase } from '../config/supabase.js';
+import { supabaseAdmin } from '../config/supabase.js';
 import { authenticate, requireRole } from '../middleware/auth.middleware.js';
 import Joi from 'joi';
 
@@ -38,7 +38,7 @@ const updateComplaintStatusSchema = Joi.object({
 
 // Helper: Get board member's society ID
 async function getBoardMemberSociety(userId) {
-  const { data: profile } = await supabase
+  const { data: profile } = await supabaseAdmin
     .from('user_profiles')
     .select('id')
     .eq('user_id', userId)
@@ -46,7 +46,7 @@ async function getBoardMemberSociety(userId) {
 
   if (!profile) return null;
 
-  const { data: boardMember } = await supabase
+  const { data: boardMember } = await supabaseAdmin
     .from('society_board_members')
     .select('society_id')
     .eq('board_member_id', profile.id)
@@ -69,7 +69,7 @@ router.get('/society', async (req, res) => {
       });
     }
 
-    const { data: society } = await supabase
+    const { data: society } = await supabaseAdmin
       .from('societies')
       .select('*')
       .eq('id', societyId)
@@ -83,13 +83,13 @@ router.get('/society', async (req, res) => {
     }
 
     // Get board members count
-    const { count: boardMembersCount } = await supabase
+    const { count: boardMembersCount } = await supabaseAdmin
       .from('society_board_members')
       .select('*', { count: 'exact', head: true })
       .eq('society_id', societyId);
 
     // Get total members count
-    const { count: membersCount } = await supabase
+    const { count: membersCount } = await supabaseAdmin
       .from('society_units')
       .select('*', { count: 'exact', head: true })
       .eq('society_id', societyId)
@@ -128,7 +128,7 @@ router.get('/members', async (req, res) => {
       });
     }
 
-    const { data: units } = await supabase
+    const { data: units } = await supabaseAdmin
       .from('society_units')
       .select(`
         id,
@@ -189,7 +189,7 @@ router.post('/members', async (req, res) => {
     const { userId, unitNumber, unitType, floorNumber } = value;
 
     // Verify user profile exists
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await supabaseAdmin
       .from('user_profiles')
       .select('id, role')
       .eq('user_id', userId)
@@ -210,7 +210,7 @@ router.post('/members', async (req, res) => {
     }
 
     // Check if unit already exists
-    const { data: existingUnit } = await supabase
+    const { data: existingUnit } = await supabaseAdmin
       .from('society_units')
       .select('id')
       .eq('society_id', societyId)
@@ -220,7 +220,7 @@ router.post('/members', async (req, res) => {
     let unit;
     if (existingUnit) {
       // Update existing unit
-      const { data: updatedUnit } = await supabase
+      const { data: updatedUnit } = await supabaseAdmin
         .from('society_units')
         .update({
           member_id: userProfile.id,
@@ -232,7 +232,7 @@ router.post('/members', async (req, res) => {
       unit = updatedUnit;
     } else {
       // Create new unit
-      const { data: newUnit, error: unitError } = await supabase
+      const { data: newUnit, error: unitError } = await supabaseAdmin
         .from('society_units')
         .insert({
           society_id: societyId,
@@ -289,7 +289,7 @@ router.post('/maintenance/generate', async (req, res) => {
     const { month, year, dueDate } = value;
 
     // Get all occupied units
-    const { data: units } = await supabase
+    const { data: units } = await supabaseAdmin
       .from('society_units')
       .select('id, member_id, unit_type')
       .eq('society_id', societyId)
@@ -322,7 +322,7 @@ router.post('/maintenance/generate', async (req, res) => {
     }));
 
     // Check if bills already exist for this month/year
-    const { data: existingBills } = await supabase
+    const { data: existingBills } = await supabaseAdmin
       .from('maintenance_bills')
       .select('unit_id')
       .eq('society_id', societyId)
@@ -339,7 +339,7 @@ router.post('/maintenance/generate', async (req, res) => {
       });
     }
 
-    const { error: insertError } = await supabase
+    const { error: insertError } = await supabaseAdmin
       .from('maintenance_bills')
       .insert(newBills);
 
@@ -374,7 +374,7 @@ router.get('/maintenance', async (req, res) => {
 
     const { status, month, year } = req.query;
 
-    let query = supabase
+    let query = supabaseAdmin
       .from('maintenance_bills')
       .select(`
         id,
@@ -442,7 +442,7 @@ router.get('/visitors', async (req, res) => {
 
     const { status } = req.query;
 
-    let query = supabase
+    let query = supabaseAdmin
       .from('visitor_passes')
       .select(`
         id,
@@ -510,13 +510,13 @@ router.put('/visitors/:visitorId/approve', async (req, res) => {
     const societyId = await getBoardMemberSociety(req.user.id);
 
     // Get board member profile ID
-    const { data: profile } = await supabase
+    const { data: profile } = await supabaseAdmin
       .from('user_profiles')
       .select('id')
       .eq('user_id', req.user.id)
       .single();
 
-    const { data: visitor, error: updateError } = await supabase
+    const { data: visitor, error: updateError } = await supabaseAdmin
       .from('visitor_passes')
       .update({
         status: 'APPROVED',
@@ -558,7 +558,7 @@ router.put('/visitors/:visitorId/reject', async (req, res) => {
     const { visitorId } = req.params;
     const societyId = await getBoardMemberSociety(req.user.id);
 
-    const { data: visitor, error: updateError } = await supabase
+    const { data: visitor, error: updateError } = await supabaseAdmin
       .from('visitor_passes')
       .update({
         status: 'REJECTED'
@@ -598,7 +598,7 @@ router.post('/visitors/:visitorId/log-entry', async (req, res) => {
     const { visitorId } = req.params;
     const societyId = await getBoardMemberSociety(req.user.id);
 
-    const { data: visitor, error: updateError } = await supabase
+    const { data: visitor, error: updateError } = await supabaseAdmin
       .from('visitor_passes')
       .update({
         entry_logged_at: new Date().toISOString()
@@ -650,13 +650,13 @@ router.post('/notices', async (req, res) => {
       });
     }
 
-    const { data: profile } = await supabase
+    const { data: profile } = await supabaseAdmin
       .from('user_profiles')
       .select('id')
       .eq('user_id', req.user.id)
       .single();
 
-    const { data: notice, error: noticeError } = await supabase
+    const { data: notice, error: noticeError } = await supabaseAdmin
       .from('notices')
       .insert({
         society_id: societyId,
@@ -699,7 +699,7 @@ router.get('/notices', async (req, res) => {
     const societyId = await getBoardMemberSociety(req.user.id);
     const { category, isActive } = req.query;
 
-    let query = supabase
+    let query = supabaseAdmin
       .from('notices')
       .select(`
         id,
@@ -760,7 +760,7 @@ router.put('/notices/:noticeId', async (req, res) => {
     if (req.body.content) updateData.content = req.body.content;
     if (req.body.isActive !== undefined) updateData.is_active = req.body.isActive;
 
-    const { data: notice, error: updateError } = await supabase
+    const { data: notice, error: updateError } = await supabaseAdmin
       .from('notices')
       .update(updateData)
       .eq('id', noticeId)
@@ -800,7 +800,7 @@ router.delete('/notices/:noticeId', async (req, res) => {
     const { noticeId } = req.params;
     const societyId = await getBoardMemberSociety(req.user.id);
 
-    const { error: deleteError } = await supabase
+    const { error: deleteError } = await supabaseAdmin
       .from('notices')
       .delete()
       .eq('id', noticeId)
@@ -827,7 +827,7 @@ router.get('/complaints', async (req, res) => {
     const societyId = await getBoardMemberSociety(req.user.id);
     const { status, category } = req.query;
 
-    let query = supabase
+    let query = supabaseAdmin
       .from('complaints')
       .select(`
         id,
@@ -906,7 +906,7 @@ router.put('/complaints/:complaintId/status', async (req, res) => {
       updateData.resolved_at = new Date().toISOString();
     }
 
-    const { data: complaint, error: updateError } = await supabase
+    const { data: complaint, error: updateError } = await supabaseAdmin
       .from('complaints')
       .update(updateData)
       .eq('id', complaintId)

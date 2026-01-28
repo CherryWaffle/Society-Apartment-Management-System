@@ -35,10 +35,11 @@ router.post('/register', async (req, res) => {
 
     const { email, password, fullName, phone, role } = value;
 
-    // Create user in Supabase Auth
-    const { data: authData, error: authError } = await supabase.auth.signUp({
+    // Create user in Supabase Auth using admin API (bypasses email confirmation issues)
+    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
-      password
+      password,
+      email_confirm: true
     });
 
     if (authError) {
@@ -56,7 +57,7 @@ router.post('/register', async (req, res) => {
     }
 
     // Create user profile
-    const { data: profile, error: profileError } = await supabase
+    const { data: profile, error: profileError } = await supabaseAdmin
       .from('user_profiles')
       .insert({
         user_id: authData.user.id,
@@ -69,19 +70,41 @@ router.post('/register', async (req, res) => {
 
     if (profileError) {
       // Rollback: delete auth user if profile creation fails
-      await supabaseAdmin?.auth.admin.deleteUser(authData.user.id);
+      await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
       return res.status(400).json({
         error: 'Registration Failed',
-        message: 'Failed to create user profile'
+        message: process.env.NODE_ENV === 'development'
+          ? `Failed to create user profile: ${profileError.message}`
+          : 'Failed to create user profile'
+      });
+    }
+
+    // Create a session for the newly created user
+    const { data: sessionData, error: signInError } = await supabase.auth.signInWithPassword({
+      email,
+      password
+    });
+
+    if (signInError) {
+      return res.status(201).json({
+        user: {
+          id: authData.user.id,
+          email: authData.user.email
+        },
+        session: null,
+        warning: 'User created but could not sign in automatically. Please login.'
       });
     }
 
     res.status(201).json({
       user: {
         id: authData.user.id,
-        email: authData.user.email
+        email: authData.user.email,
+        fullName: profile.full_name,
+        phone: profile.phone,
+        role: profile.role
       },
-      session: authData.session
+      session: sessionData.session
     });
   } catch (error) {
     console.error('Register error:', error);
@@ -120,10 +143,27 @@ router.post('/login', async (req, res) => {
       });
     }
 
+    // Fetch profile (needed by frontend to route based on role)
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from('user_profiles')
+      .select('full_name, phone, role')
+      .eq('user_id', data.user.id)
+      .single();
+
+    if (profileError || !profile) {
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'User profile not found'
+      });
+    }
+
     res.json({
       user: {
         id: data.user.id,
-        email: data.user.email
+        email: data.user.email,
+        fullName: profile.full_name,
+        phone: profile.phone,
+        role: profile.role
       },
       session: data.session
     });
@@ -142,7 +182,7 @@ router.post('/login', async (req, res) => {
  */
 router.get('/me', authenticate, async (req, res) => {
   try {
-    const { data: profile, error } = await supabase
+    const { data: profile, error } = await supabaseAdmin
       .from('user_profiles')
       .select('id, full_name, phone, role, created_at')
       .eq('user_id', req.user.id)

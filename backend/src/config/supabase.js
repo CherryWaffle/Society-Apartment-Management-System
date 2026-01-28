@@ -15,8 +15,12 @@ if (!supabaseUrl || !supabaseAnonKey) {
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // Admin client for server-side operations (uses service role key)
-export const supabaseAdmin = supabaseServiceRoleKey
-  ? createClient(supabaseUrl, supabaseServiceRoleKey)
-  : null;
+// NOTE: We use this for DB operations because our schema enables RLS.
+// Service role bypasses RLS (safe only on server).
+if (!supabaseServiceRoleKey) {
+  throw new Error('Missing SUPABASE_SERVICE_ROLE_KEY (required for server-side DB operations)');
+}
+
+export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey);
 
 export default supabase;

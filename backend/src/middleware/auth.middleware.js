@@ -1,4 +1,4 @@
-import { supabase } from '../config/supabase.js';
+import { supabase, supabaseAdmin } from '../config/supabase.js';
 
 /**
  * Middleware to verify Supabase JWT token
@@ -52,9 +52,9 @@ export const requireRole = (...allowedRoles) => {
       }
 
       // Get user profile to check role
-      const { data: profile, error } = await supabase
+      const { data: profile, error } = await supabaseAdmin
         .from('user_profiles')
-        .select('role')
+        .select('id, user_id, full_name, phone, role')
         .eq('user_id', req.user.id)
         .single();
 

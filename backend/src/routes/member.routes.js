@@ -1,5 +1,5 @@
 import express from 'express';
-import { supabase } from '../config/supabase.js';
+import { supabaseAdmin } from '../config/supabase.js';
 import { authenticate, requireRole } from '../middleware/auth.middleware.js';
 import Joi from 'joi';
 
@@ -27,7 +27,7 @@ const raiseComplaintSchema = Joi.object({
 
 // Helper: Get member's society ID and unit ID
 async function getMemberSocietyAndUnit(userId) {
-  const { data: profile } = await supabase
+  const { data: profile } = await supabaseAdmin
     .from('user_profiles')
     .select('id')
     .eq('user_id', userId)
@@ -35,7 +35,7 @@ async function getMemberSocietyAndUnit(userId) {
 
   if (!profile) return { societyId: null, unitId: null };
 
-  const { data: unit } = await supabase
+  const { data: unit } = await supabaseAdmin
     .from('society_units')
     .select('id, society_id')
     .eq('member_id', profile.id)
@@ -63,7 +63,7 @@ router.get('/bills', async (req, res) => {
       });
     }
 
-    let query = supabase
+    let query = supabaseAdmin
       .from('maintenance_bills')
       .select('*')
       .eq('society_id', societyId)
@@ -106,7 +106,7 @@ router.get('/bills/:billId', async (req, res) => {
     const { billId } = req.params;
     const { societyId, unitId } = await getMemberSocietyAndUnit(req.user.id);
 
-    const { data: bill, error: billError } = await supabase
+    const { data: bill, error: billError } = await supabaseAdmin
       .from('maintenance_bills')
       .select(`
         *,
@@ -160,7 +160,7 @@ router.post('/bills/:billId/pay', async (req, res) => {
     const { societyId, unitId } = await getMemberSocietyAndUnit(req.user.id);
 
     // Get bill
-    const { data: bill, error: billError } = await supabase
+    const { data: bill, error: billError } = await supabaseAdmin
       .from('maintenance_bills')
       .select('*')
       .eq('id', billId)
@@ -183,7 +183,7 @@ router.post('/bills/:billId/pay', async (req, res) => {
     }
 
     // Create payment transaction
-    const { data: transaction, error: transactionError } = await supabase
+    const { data: transaction, error: transactionError } = await supabaseAdmin
       .from('payment_transactions')
       .insert({
         bill_id: billId,
@@ -198,7 +198,7 @@ router.post('/bills/:billId/pay', async (req, res) => {
     if (transactionError) throw transactionError;
 
     // Update bill status
-    const { error: updateError } = await supabase
+    const { error: updateError } = await supabaseAdmin
       .from('maintenance_bills')
       .update({
         status: 'PAID',
@@ -240,7 +240,7 @@ router.get('/payment-history', async (req, res) => {
     }
 
     // Get all paid bills with transactions
-    const { data: bills, error: billsError } = await supabase
+    const { data: bills, error: billsError } = await supabaseAdmin
       .from('maintenance_bills')
       .select(`
         id,
@@ -304,13 +304,13 @@ router.post('/visitors', async (req, res) => {
       });
     }
 
-    const { data: profile } = await supabase
+    const { data: profile } = await supabaseAdmin
       .from('user_profiles')
       .select('id')
       .eq('user_id', req.user.id)
       .single();
 
-    const { data: visitor, error: visitorError } = await supabase
+    const { data: visitor, error: visitorError } = await supabaseAdmin
       .from('visitor_passes')
       .insert({
         society_id: societyId,
@@ -363,13 +363,13 @@ router.get('/visitors', async (req, res) => {
       });
     }
 
-    const { data: profile } = await supabase
+    const { data: profile } = await supabaseAdmin
       .from('user_profiles')
       .select('id')
       .eq('user_id', req.user.id)
       .single();
 
-    let query = supabase
+    let query = supabaseAdmin
       .from('visitor_passes')
       .select('*')
       .eq('society_id', societyId)
@@ -422,7 +422,7 @@ router.get('/notices', async (req, res) => {
       });
     }
 
-    let query = supabase
+    let query = supabaseAdmin
       .from('notices')
       .select('*')
       .eq('society_id', societyId)
@@ -463,7 +463,7 @@ router.get('/notices/:noticeId', async (req, res) => {
     const { noticeId } = req.params;
     const { societyId } = await getMemberSocietyAndUnit(req.user.id);
 
-    const { data: notice, error: noticeError } = await supabase
+    const { data: notice, error: noticeError } = await supabaseAdmin
       .from('notices')
       .select('*')
       .eq('id', noticeId)
@@ -517,13 +517,13 @@ router.post('/complaints', async (req, res) => {
       });
     }
 
-    const { data: profile } = await supabase
+    const { data: profile } = await supabaseAdmin
       .from('user_profiles')
       .select('id')
       .eq('user_id', req.user.id)
       .single();
 
-    const { data: complaint, error: complaintError } = await supabase
+    const { data: complaint, error: complaintError } = await supabaseAdmin
       .from('complaints')
       .insert({
         society_id: societyId,
@@ -575,13 +575,13 @@ router.get('/complaints', async (req, res) => {
       });
     }
 
-    const { data: profile } = await supabase
+    const { data: profile } = await supabaseAdmin
       .from('user_profiles')
       .select('id')
       .eq('user_id', req.user.id)
       .single();
 
-    let query = supabase
+    let query = supabaseAdmin
       .from('complaints')
       .select('*')
       .eq('society_id', societyId)
@@ -629,13 +629,13 @@ router.get('/complaints/:complaintId', async (req, res) => {
       });
     }
 
-    const { data: profile } = await supabase
+    const { data: profile } = await supabaseAdmin
       .from('user_profiles')
       .select('id')
       .eq('user_id', req.user.id)
       .single();
 
-    const { data: complaint, error: complaintError } = await supabase
+    const { data: complaint, error: complaintError } = await supabaseAdmin
       .from('complaints')
       .select(`
         *,
@@ -656,7 +656,7 @@ router.get('/complaints/:complaintId', async (req, res) => {
     }
 
     // Get complaint photos
-    const { data: photos } = await supabase
+    const { data: photos } = await supabaseAdmin
       .from('complaint_photos')
       .select('photo_url')
       .eq('complaint_id', complaintId);
