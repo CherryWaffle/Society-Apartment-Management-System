@@ -8,6 +8,10 @@ export default function AdminDashboard() {
   const { user, logout } = useAuth();
   const queryClient = useQueryClient();
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [assignSocietyId, setAssignSocietyId] = useState(null);
+  const [assignBoardMemberId, setAssignBoardMemberId] = useState('');
+  const [assignDesignation, setAssignDesignation] = useState('PRESIDENT');
   const [formData, setFormData] = useState({
     name: '',
     address: '',
@@ -24,6 +28,15 @@ export default function AdminDashboard() {
     }
   });
 
+  const { data: boardMembersList } = useQuery({
+    queryKey: ['admin-board-members'],
+    queryFn: async () => {
+      const res = await adminAPI.listBoardMembers();
+      return res.data.boardMembers;
+    },
+    enabled: showAssignModal
+  });
+
   const createMutation = useMutation({
     mutationFn: adminAPI.createSociety,
     onSuccess: () => {
@@ -33,11 +46,38 @@ export default function AdminDashboard() {
     }
   });
 
+  const assignMutation = useMutation({
+    mutationFn: ({ societyId, data }) => adminAPI.assignBoardMember(societyId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['societies']);
+      setShowAssignModal(false);
+      setAssignSocietyId(null);
+      setAssignBoardMemberId('');
+      setAssignDesignation('PRESIDENT');
+    }
+  });
+
   const handleSubmit = (e) => {
     e.preventDefault();
     createMutation.mutate({
       ...formData,
       totalUnits: parseInt(formData.totalUnits)
+    });
+  };
+
+  const openAssignModal = (society) => {
+    setAssignSocietyId(society.id);
+    setAssignBoardMemberId('');
+    setAssignDesignation('PRESIDENT');
+    setShowAssignModal(true);
+  };
+
+  const handleAssignSubmit = (e) => {
+    e.preventDefault();
+    if (!assignSocietyId || !assignBoardMemberId) return;
+    assignMutation.mutate({
+      societyId: assignSocietyId,
+      data: { boardMemberId: assignBoardMemberId, designation: assignDesignation }
     });
   };
 
@@ -72,6 +112,7 @@ export default function AdminDashboard() {
                   <th>Pincode</th>
                   <th>Total Units</th>
                   <th>Created</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -83,11 +124,20 @@ export default function AdminDashboard() {
                     <td>{society.pincode}</td>
                     <td>{society.total_units}</td>
                     <td>{new Date(society.created_at).toLocaleDateString()}</td>
+                    <td>
+                      <button
+                        type="button"
+                        className="btn-small btn-primary"
+                        onClick={() => openAssignModal(society)}
+                      >
+                        Assign Board Member
+                      </button>
+                    </td>
                   </tr>
                 ))}
                 {(!societies || societies.length === 0) && (
                   <tr>
-                    <td colSpan="6" style={{ textAlign: 'center', padding: '40px' }}>
+                    <td colSpan="7" style={{ textAlign: 'center', padding: '40px' }}>
                       No societies found. Create one to get started.
                     </td>
                   </tr>
@@ -97,6 +147,55 @@ export default function AdminDashboard() {
           </div>
         )}
       </div>
+
+      {showAssignModal && (
+        <div className="modal-overlay" onClick={() => setShowAssignModal(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h3>Assign Board Member to Society</h3>
+            <form onSubmit={handleAssignSubmit}>
+              <div className="form-group">
+                <label>Board Member</label>
+                <select
+                  value={assignBoardMemberId}
+                  onChange={(e) => setAssignBoardMemberId(e.target.value)}
+                  required
+                >
+                  <option value="">Select a board member</option>
+                  {boardMembersList?.map((bm) => (
+                    <option key={bm.id} value={bm.id}>
+                      {bm.fullName} {bm.phone ? `(${bm.phone})` : ''}
+                    </option>
+                  ))}
+                  {boardMembersList?.length === 0 && (
+                    <option value="" disabled>No board members found. Register a user with Board Member role first.</option>
+                  )}
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Designation</label>
+                <select
+                  value={assignDesignation}
+                  onChange={(e) => setAssignDesignation(e.target.value)}
+                >
+                  <option value="PRESIDENT">President</option>
+                  <option value="VICE_PRESIDENT">Vice President</option>
+                  <option value="SECRETARY">Secretary</option>
+                  <option value="TREASURER">Treasurer</option>
+                  <option value="MEMBER">Member</option>
+                </select>
+              </div>
+              <div className="modal-actions">
+                <button type="button" onClick={() => setShowAssignModal(false)} className="btn-secondary">
+                  Cancel
+                </button>
+                <button type="submit" className="btn-primary" disabled={assignMutation.isLoading || !assignBoardMemberId}>
+                  {assignMutation.isLoading ? 'Assigning...' : 'Assign'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {showCreateModal && (
         <div className="modal-overlay" onClick={() => setShowCreateModal(false)}>

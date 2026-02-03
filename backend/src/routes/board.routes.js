@@ -458,7 +458,7 @@ router.get('/visitors', async (req, res) => {
         created_at,
         user_profiles!visitor_passes_requested_by_fkey (
           full_name,
-          society_units!inner (
+          society_units (
             unit_number
           )
         )
@@ -472,23 +472,27 @@ router.get('/visitors', async (req, res) => {
 
     if (visitorsError) throw visitorsError;
 
-    const formattedVisitors = (visitors || []).map(visitor => ({
-      id: visitor.id,
-      visitorName: visitor.visitor_name,
-      visitorPhone: visitor.visitor_phone,
-      visitorEmail: visitor.visitor_email,
-      purpose: visitor.purpose,
-      expectedDate: visitor.expected_date,
-      expectedTime: visitor.expected_time,
-      status: visitor.status,
-      approvedAt: visitor.approved_at,
-      entryLoggedAt: visitor.entry_logged_at,
-      requestedBy: {
-        name: visitor.user_profiles?.full_name,
-        unitNumber: visitor.user_profiles?.society_units?.[0]?.unit_number
-      },
-      createdAt: visitor.created_at
-    }));
+    const formattedVisitors = (visitors || []).map(visitor => {
+      const up = visitor.user_profiles;
+      const unit = Array.isArray(up?.society_units) ? up.society_units[0] : up?.society_units;
+      return {
+        id: visitor.id,
+        visitorName: visitor.visitor_name,
+        visitorPhone: visitor.visitor_phone,
+        visitorEmail: visitor.visitor_email,
+        purpose: visitor.purpose,
+        expectedDate: visitor.expected_date,
+        expectedTime: visitor.expected_time,
+        status: visitor.status,
+        approvedAt: visitor.approved_at,
+        entryLoggedAt: visitor.entry_logged_at,
+        requestedBy: {
+          name: up?.full_name,
+          unitNumber: unit?.unit_number ?? null
+        },
+        createdAt: visitor.created_at
+      };
+    });
 
     res.json({ visitors: formattedVisitors });
   } catch (error) {
@@ -508,6 +512,12 @@ router.put('/visitors/:visitorId/approve', async (req, res) => {
   try {
     const { visitorId } = req.params;
     const societyId = await getBoardMemberSociety(req.user.id);
+    if (!societyId) {
+      return res.status(404).json({
+        error: 'Not Found',
+        message: 'Society not found for this board member.'
+      });
+    }
 
     // Get board member profile ID
     const { data: profile } = await supabaseAdmin
@@ -557,6 +567,12 @@ router.put('/visitors/:visitorId/reject', async (req, res) => {
   try {
     const { visitorId } = req.params;
     const societyId = await getBoardMemberSociety(req.user.id);
+    if (!societyId) {
+      return res.status(404).json({
+        error: 'Not Found',
+        message: 'Society not found for this board member.'
+      });
+    }
 
     const { data: visitor, error: updateError } = await supabaseAdmin
       .from('visitor_passes')
@@ -597,6 +613,12 @@ router.post('/visitors/:visitorId/log-entry', async (req, res) => {
   try {
     const { visitorId } = req.params;
     const societyId = await getBoardMemberSociety(req.user.id);
+    if (!societyId) {
+      return res.status(404).json({
+        error: 'Not Found',
+        message: 'Society not found for this board member.'
+      });
+    }
 
     const { data: visitor, error: updateError } = await supabaseAdmin
       .from('visitor_passes')
@@ -697,6 +719,12 @@ router.post('/notices', async (req, res) => {
 router.get('/notices', async (req, res) => {
   try {
     const societyId = await getBoardMemberSociety(req.user.id);
+    if (!societyId) {
+      return res.status(404).json({
+        error: 'Not Found',
+        message: 'Society not found for this board member. Ask admin to assign you to a society.'
+      });
+    }
     const { category, isActive } = req.query;
 
     let query = supabaseAdmin
@@ -754,6 +782,12 @@ router.put('/notices/:noticeId', async (req, res) => {
   try {
     const { noticeId } = req.params;
     const societyId = await getBoardMemberSociety(req.user.id);
+    if (!societyId) {
+      return res.status(404).json({
+        error: 'Not Found',
+        message: 'Society not found for this board member.'
+      });
+    }
 
     const updateData = {};
     if (req.body.title) updateData.title = req.body.title;
@@ -799,6 +833,12 @@ router.delete('/notices/:noticeId', async (req, res) => {
   try {
     const { noticeId } = req.params;
     const societyId = await getBoardMemberSociety(req.user.id);
+    if (!societyId) {
+      return res.status(404).json({
+        error: 'Not Found',
+        message: 'Society not found for this board member.'
+      });
+    }
 
     const { error: deleteError } = await supabaseAdmin
       .from('notices')
@@ -825,6 +865,12 @@ router.delete('/notices/:noticeId', async (req, res) => {
 router.get('/complaints', async (req, res) => {
   try {
     const societyId = await getBoardMemberSociety(req.user.id);
+    if (!societyId) {
+      return res.status(404).json({
+        error: 'Not Found',
+        message: 'Society not found for this board member. Ask admin to assign you to a society.'
+      });
+    }
     const { status, category } = req.query;
 
     let query = supabaseAdmin
@@ -839,7 +885,7 @@ router.get('/complaints', async (req, res) => {
         updated_at,
         user_profiles!complaints_raised_by_fkey (
           full_name,
-          society_units!inner (
+          society_units (
             unit_number
           )
         )
@@ -854,19 +900,23 @@ router.get('/complaints', async (req, res) => {
 
     if (complaintsError) throw complaintsError;
 
-    const formattedComplaints = (complaints || []).map(complaint => ({
-      id: complaint.id,
-      title: complaint.title,
-      description: complaint.description,
-      category: complaint.category,
-      status: complaint.status,
-      raisedBy: {
-        name: complaint.user_profiles?.full_name,
-        unitNumber: complaint.user_profiles?.society_units?.[0]?.unit_number
-      },
-      createdAt: complaint.created_at,
-      updatedAt: complaint.updated_at
-    }));
+    const formattedComplaints = (complaints || []).map(complaint => {
+      const up = complaint.user_profiles;
+      const unit = Array.isArray(up?.society_units) ? up.society_units[0] : up?.society_units;
+      return {
+        id: complaint.id,
+        title: complaint.title,
+        description: complaint.description,
+        category: complaint.category,
+        status: complaint.status,
+        raisedBy: {
+          name: up?.full_name,
+          unitNumber: unit?.unit_number ?? null
+        },
+        createdAt: complaint.created_at,
+        updatedAt: complaint.updated_at
+      };
+    });
 
     res.json({ complaints: formattedComplaints });
   } catch (error) {
@@ -894,6 +944,12 @@ router.put('/complaints/:complaintId/status', async (req, res) => {
 
     const { complaintId } = req.params;
     const societyId = await getBoardMemberSociety(req.user.id);
+    if (!societyId) {
+      return res.status(404).json({
+        error: 'Not Found',
+        message: 'Society not found for this board member.'
+      });
+    }
     const { status, assignedTo, resolutionNotes } = value;
 
     const updateData = {

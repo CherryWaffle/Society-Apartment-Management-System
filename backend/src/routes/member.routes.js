@@ -57,10 +57,7 @@ router.get('/bills', async (req, res) => {
     const { societyId, unitId } = await getMemberSocietyAndUnit(req.user.id);
 
     if (!societyId || !unitId) {
-      return res.status(404).json({
-        error: 'Not Found',
-        message: 'Member unit not found'
-      });
+      return res.json({ bills: [] });
     }
 
     let query = supabaseAdmin
@@ -105,6 +102,12 @@ router.get('/bills/:billId', async (req, res) => {
   try {
     const { billId } = req.params;
     const { societyId, unitId } = await getMemberSocietyAndUnit(req.user.id);
+    if (!societyId || !unitId) {
+      return res.status(404).json({
+        error: 'Not Found',
+        message: 'You are not assigned to a unit yet. Ask your society board to add you.'
+      });
+    }
 
     const { data: bill, error: billError } = await supabaseAdmin
       .from('maintenance_bills')
@@ -158,6 +161,12 @@ router.post('/bills/:billId/pay', async (req, res) => {
     const { billId } = req.params;
     const { paymentMethod = 'ONLINE' } = req.body;
     const { societyId, unitId } = await getMemberSocietyAndUnit(req.user.id);
+    if (!societyId || !unitId) {
+      return res.status(404).json({
+        error: 'Not Found',
+        message: 'You are not assigned to a unit yet.'
+      });
+    }
 
     // Get bill
     const { data: bill, error: billError } = await supabaseAdmin
@@ -233,10 +242,7 @@ router.get('/payment-history', async (req, res) => {
     const { societyId, unitId } = await getMemberSocietyAndUnit(req.user.id);
 
     if (!societyId || !unitId) {
-      return res.status(404).json({
-        error: 'Not Found',
-        message: 'Member unit not found'
-      });
+      return res.json({ payments: [] });
     }
 
     // Get all paid bills with transactions
@@ -298,9 +304,9 @@ router.post('/visitors', async (req, res) => {
 
     const { societyId } = await getMemberSocietyAndUnit(req.user.id);
     if (!societyId) {
-      return res.status(404).json({
-        error: 'Not Found',
-        message: 'Member unit not found'
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'You are not assigned to a unit yet. Ask your society board to add you.'
       });
     }
 
@@ -357,10 +363,7 @@ router.get('/visitors', async (req, res) => {
     const { societyId } = await getMemberSocietyAndUnit(req.user.id);
 
     if (!societyId) {
-      return res.status(404).json({
-        error: 'Not Found',
-        message: 'Member unit not found'
-      });
+      return res.json({ visitors: [] });
     }
 
     const { data: profile } = await supabaseAdmin
@@ -416,10 +419,7 @@ router.get('/notices', async (req, res) => {
     const { societyId } = await getMemberSocietyAndUnit(req.user.id);
 
     if (!societyId) {
-      return res.status(404).json({
-        error: 'Not Found',
-        message: 'Member unit not found'
-      });
+      return res.json({ notices: [] });
     }
 
     let query = supabaseAdmin
@@ -462,6 +462,12 @@ router.get('/notices/:noticeId', async (req, res) => {
   try {
     const { noticeId } = req.params;
     const { societyId } = await getMemberSocietyAndUnit(req.user.id);
+    if (!societyId) {
+      return res.status(404).json({
+        error: 'Not Found',
+        message: 'You are not assigned to a unit yet.'
+      });
+    }
 
     const { data: notice, error: noticeError } = await supabaseAdmin
       .from('notices')
@@ -511,9 +517,9 @@ router.post('/complaints', async (req, res) => {
 
     const { societyId } = await getMemberSocietyAndUnit(req.user.id);
     if (!societyId) {
-      return res.status(404).json({
-        error: 'Not Found',
-        message: 'Member unit not found'
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'You are not assigned to a unit yet. Ask your society board to add you.'
       });
     }
 
@@ -569,10 +575,7 @@ router.get('/complaints', async (req, res) => {
     const { societyId } = await getMemberSocietyAndUnit(req.user.id);
 
     if (!societyId) {
-      return res.status(404).json({
-        error: 'Not Found',
-        message: 'Member unit not found'
-      });
+      return res.json({ complaints: [] });
     }
 
     const { data: profile } = await supabaseAdmin
@@ -625,7 +628,7 @@ router.get('/complaints/:complaintId', async (req, res) => {
     if (!societyId) {
       return res.status(404).json({
         error: 'Not Found',
-        message: 'Member unit not found'
+        message: 'You are not assigned to a unit yet.'
       });
     }
 

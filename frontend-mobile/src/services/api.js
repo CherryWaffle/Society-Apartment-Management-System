@@ -1,12 +1,16 @@
 import { storage } from '../utils/storage';
 
 // IMPORTANT:
-// - On a REAL PHONE, "localhost" points to the phone (not your PC), so requests never reach your backend.
-// - Set EXPO_PUBLIC_API_URL in `frontend-mobile/.env` to your PC IP, e.g.:
-//   EXPO_PUBLIC_API_URL=http://192.168.1.10:3000/api
-const API_BASE_URL =
-  process.env.EXPO_PUBLIC_API_URL ||
-  (__DEV__ ? 'http://localhost:3000/api' : 'https://your-backend-url.com/api');
+// - On a REAL PHONE, "localhost" points to the phone (not your PC), so set EXPO_PUBLIC_API_URL to your PC IP.
+// - You can use either http://IP:3000 or http://IP:3000/api; we normalize to include /api.
+function getApiBaseUrl() {
+  const raw =
+    process.env.EXPO_PUBLIC_API_URL ||
+    (__DEV__ ? 'http://localhost:3000' : 'https://your-backend-url.com');
+  const base = raw.replace(/\/+$/, '');
+  return base.endsWith('/api') ? base : `${base}/api`;
+}
+const API_BASE_URL = getApiBaseUrl();
 
 // Helper function to make API requests with fetch
 async function request(endpoint, options = {}) {

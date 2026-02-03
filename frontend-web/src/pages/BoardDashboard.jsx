@@ -9,12 +9,13 @@ export default function BoardDashboard() {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('overview');
 
-  const { data: society } = useQuery({
+  const { data: society, error: societyError, isError: societyIsError } = useQuery({
     queryKey: ['board-society'],
     queryFn: async () => {
       const res = await boardAPI.getSociety();
       return res.data;
-    }
+    },
+    retry: false
   });
 
   const { data: members } = useQuery({
@@ -23,7 +24,7 @@ export default function BoardDashboard() {
       const res = await boardAPI.listMembers();
       return res.data.members;
     },
-    enabled: activeTab === 'members'
+    enabled: activeTab === 'members' && !!society
   });
 
   const { data: maintenance } = useQuery({
@@ -32,7 +33,7 @@ export default function BoardDashboard() {
       const res = await boardAPI.listMaintenance();
       return res.data.bills;
     },
-    enabled: activeTab === 'maintenance'
+    enabled: activeTab === 'maintenance' && !!society
   });
 
   const { data: visitors } = useQuery({
@@ -41,7 +42,7 @@ export default function BoardDashboard() {
       const res = await boardAPI.listVisitors();
       return res.data.visitors;
     },
-    enabled: activeTab === 'visitors'
+    enabled: activeTab === 'visitors' && !!society
   });
 
   const { data: notices } = useQuery({
@@ -50,7 +51,7 @@ export default function BoardDashboard() {
       const res = await boardAPI.listNotices();
       return res.data.notices;
     },
-    enabled: activeTab === 'notices'
+    enabled: activeTab === 'notices' && !!society
   });
 
   const { data: complaints } = useQuery({
@@ -59,7 +60,7 @@ export default function BoardDashboard() {
       const res = await boardAPI.listComplaints();
       return res.data.complaints;
     },
-    enabled: activeTab === 'complaints'
+    enabled: activeTab === 'complaints' && !!society
   });
 
   const approveVisitorMutation = useMutation({
@@ -127,7 +128,13 @@ export default function BoardDashboard() {
         </div>
 
         <div className="tab-content">
-          {activeTab === 'overview' && (
+          {societyIsError ? (
+            <div className="overview" style={{ padding: 24 }}>
+              <p style={{ color: '#856404', background: '#fff3cd', padding: 16, borderRadius: 8 }}>
+                You are not assigned to any society yet. Ask the <strong>Super Admin</strong> to assign you to a society from the Admin dashboard (Societies → Assign Board Member).
+              </p>
+            </div>
+          ) : activeTab === 'overview' && (
             <div className="overview">
               <h2>{society?.name}</h2>
               <div className="stats-grid">
@@ -152,7 +159,7 @@ export default function BoardDashboard() {
             </div>
           )}
 
-          {activeTab === 'members' && (
+          {activeTab === 'members' && !societyIsError && (
             <div className="table-container">
               <table>
                 <thead>
@@ -179,7 +186,7 @@ export default function BoardDashboard() {
             </div>
           )}
 
-          {activeTab === 'maintenance' && (
+          {activeTab === 'maintenance' && !societyIsError && (
             <div className="table-container">
               <table>
                 <thead>
@@ -212,7 +219,7 @@ export default function BoardDashboard() {
             </div>
           )}
 
-          {activeTab === 'visitors' && (
+          {activeTab === 'visitors' && !societyIsError && (
             <div className="table-container">
               <table>
                 <thead>
@@ -264,7 +271,7 @@ export default function BoardDashboard() {
             </div>
           )}
 
-          {activeTab === 'notices' && (
+          {activeTab === 'notices' && !societyIsError && (
             <div>
               {notices?.map((notice) => (
                 <div key={notice.id} className="notice-card">
@@ -280,7 +287,7 @@ export default function BoardDashboard() {
             </div>
           )}
 
-          {activeTab === 'complaints' && (
+          {activeTab === 'complaints' && !societyIsError && (
             <div className="table-container">
               <table>
                 <thead>

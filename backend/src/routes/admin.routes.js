@@ -24,6 +24,79 @@ const assignBoardMemberSchema = Joi.object({
 });
 
 /**
+ * GET /api/admin/board-members
+ * List all users with BOARD_MEMBER role (for assigning to societies)
+ */
+router.get('/board-members', async (req, res) => {
+  try {
+    const { data: profiles, error } = await supabaseAdmin
+      .from('user_profiles')
+      .select('id, full_name, phone')
+      .eq('role', 'BOARD_MEMBER')
+      .order('full_name');
+
+    if (error) throw error;
+
+    const list = (profiles || []).map((p) => ({
+      id: p.id,
+      fullName: p.full_name,
+      phone: p.phone
+    }));
+
+    res.json({ boardMembers: list });
+  } catch (error) {
+    console.error('List board members error:', error);
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Failed to fetch board members'
+    });
+  }
+});
+
+/**
+ * GET /api/admin/societies/:societyId/board-members
+ * List board members already assigned to a society
+ */
+router.get('/societies/:societyId/board-members', async (req, res) => {
+  try {
+    const { societyId } = req.params;
+
+    const { data: assignments, error } = await supabaseAdmin
+      .from('society_board_members')
+      .select(`
+        id,
+        designation,
+        assigned_at,
+        user_profiles!society_board_members_board_member_id_fkey (
+          id,
+          full_name,
+          phone
+        )
+      `)
+      .eq('society_id', societyId);
+
+    if (error) throw error;
+
+    const list = (assignments || []).map((a) => ({
+      id: a.id,
+      designation: a.designation,
+      assignedAt: a.assigned_at,
+      boardMemberId: a.user_profiles?.id,
+      fullName: a.user_profiles?.full_name,
+      phone: a.user_profiles?.phone
+    }));
+
+    res.json({ assignments: list });
+  } catch (error) {
+    console.error('List society board members error:', error);
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Failed to fetch assignments'
+    });
+  }
+});
+
+/**
  * GET /api/admin/societies
  * List all societies
  */

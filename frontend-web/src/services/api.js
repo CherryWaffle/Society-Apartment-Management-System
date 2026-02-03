@@ -30,6 +30,8 @@ export const authAPI = {
 export const adminAPI = {
   listSocieties: () => api.get('/admin/societies'),
   createSociety: (data) => api.post('/admin/societies', data),
+  listBoardMembers: () => api.get('/admin/board-members'),
+  listSocietyBoardMembers: (societyId) => api.get(`/admin/societies/${societyId}/board-members`),
   assignBoardMember: (societyId, data) => api.post(`/admin/societies/${societyId}/board-members`, data)
 };
 
