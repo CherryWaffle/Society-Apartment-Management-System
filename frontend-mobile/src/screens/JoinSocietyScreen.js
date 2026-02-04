@@ -130,22 +130,33 @@ export default function JoinSocietyScreen({ onJoinSuccess }) {
                 <Text style={styles.emptyText}>Request to join a society below. Your status will appear here.</Text>
               </View>
             ) : (
-              myRequests.map((req) => {
-                const displayStatus = req.status === 'APPROVED' ? 'REMOVED' : req.status;
-                return (
-                  <View key={req.id} style={styles.requestCard}>
-                    <View style={styles.requestCardLeft}>
-                      <Text style={styles.requestSociety}>{req.societyName}</Text>
-                      {req.societyCity && (
-                        <Text style={styles.requestMeta}>{req.societyCity}</Text>
-                      )}
+              (() => {
+                // Group requests by societyId and keep only the most recent one
+                const latestRequests = {};
+                myRequests.forEach((req) => {
+                  if (!latestRequests[req.societyId] || 
+                      new Date(req.createdAt) > new Date(latestRequests[req.societyId].createdAt)) {
+                    latestRequests[req.societyId] = req;
+                  }
+                });
+                
+                return Object.values(latestRequests).map((req) => {
+                  const displayStatus = req.status === 'APPROVED' ? 'REMOVED' : req.status;
+                  return (
+                    <View key={req.id} style={styles.requestCard}>
+                      <View style={styles.requestCardLeft}>
+                        <Text style={styles.requestSociety}>{req.societyName}</Text>
+                        {req.societyCity && (
+                          <Text style={styles.requestMeta}>{req.societyCity}</Text>
+                        )}
+                      </View>
+                      <View style={[styles.statusBadge, styles[`status_${displayStatus}`]]}>
+                        <Text style={styles.statusText}>{displayStatus}</Text>
+                      </View>
                     </View>
-                    <View style={[styles.statusBadge, styles[`status_${displayStatus}`]]}>
-                      <Text style={styles.statusText}>{displayStatus}</Text>
-                    </View>
-                  </View>
-                );
-              })
+                  );
+                });
+              })()
             )}
           </View>
         )}
