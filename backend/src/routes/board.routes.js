@@ -271,6 +271,69 @@ router.post('/members', async (req, res) => {
 });
 
 /**
+ * DELETE /api/board/members/:profileId
+ * Remove member from society (vacate their unit)
+ */
+router.delete('/members/:profileId', async (req, res) => {
+  try {
+    const societyId = await getBoardMemberSociety(req.user.id);
+    if (!societyId) {
+      return res.status(404).json({
+        error: 'Not Found',
+        message: 'Society not found'
+      });
+    }
+
+    const { profileId } = req.params;
+
+    const { data: unit, error: findError } = await supabaseAdmin
+      .from('society_units')
+      .select('id, unit_number')
+      .eq('society_id', societyId)
+      .eq('member_id', profileId)
+      .single();
+
+    if (findError || !unit) {
+      return res.status(404).json({
+        error: 'Not Found',
+        message: 'Member not found in this society'
+      });
+    }
+
+    const { error: updateError } = await supabaseAdmin
+      .from('society_units')
+      .update({ member_id: null, is_occupied: false })
+      .eq('id', unit.id);
+
+    if (updateError) throw updateError;
+
+    // Mark their join request as REMOVED so the app doesn't still show "Approved" / "Member"
+    const { error: joinReqError } = await supabaseAdmin
+      .from('member_join_requests')
+      .update({ status: 'REMOVED' })
+      .eq('society_id', societyId)
+      .eq('member_profile_id', profileId)
+      .eq('status', 'APPROVED');
+
+    if (joinReqError) {
+      console.error('Update join request to REMOVED failed:', joinReqError);
+      // Still return success for the unit vacate; frontend may show stale "Approved" until DB is fixed
+    }
+
+    res.json({
+      message: 'Member removed from society',
+      unitNumber: unit.unit_number
+    });
+  } catch (error) {
+    console.error('Remove member error:', error);
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Failed to remove member'
+    });
+  }
+});
+
+/**
  * GET /api/board/join-requests
  * List pending member join requests for board's society
  */

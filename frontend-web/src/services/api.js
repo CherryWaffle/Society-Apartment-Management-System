@@ -40,6 +40,7 @@ export const boardAPI = {
   getSociety: () => api.get('/board/society'),
   listMembers: () => api.get('/board/members'),
   addMember: (data) => api.post('/board/members', data),
+  removeMember: (profileId) => api.delete(`/board/members/${profileId}`),
   listJoinRequests: () => api.get('/board/join-requests'),
   approveJoinRequest: (id, data) => api.put(`/board/join-requests/${id}/approve`, data),
   rejectJoinRequest: (id) => api.put(`/board/join-requests/${id}/reject`),

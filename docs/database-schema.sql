@@ -58,11 +58,12 @@ CREATE TABLE society_board_members (
 );
 
 -- Member Join Requests (member requests to join a society; board approves and assigns unit)
+-- If table already exists without REMOVED: ALTER TABLE member_join_requests DROP CONSTRAINT IF EXISTS member_join_requests_status_check; ALTER TABLE member_join_requests ADD CONSTRAINT member_join_requests_status_check CHECK (status IN ('PENDING', 'APPROVED', 'REJECTED', 'REMOVED'));
 CREATE TABLE member_join_requests (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     society_id UUID NOT NULL REFERENCES societies(id) ON DELETE CASCADE,
     member_profile_id UUID NOT NULL REFERENCES user_profiles(id) ON DELETE CASCADE,
-    status VARCHAR(20) NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'APPROVED', 'REJECTED')),
+    status VARCHAR(20) NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'APPROVED', 'REJECTED', 'REMOVED')),
     requested_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     reviewed_by UUID REFERENCES user_profiles(id),
     reviewed_at TIMESTAMP WITH TIME ZONE,

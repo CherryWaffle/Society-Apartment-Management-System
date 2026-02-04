@@ -110,6 +110,13 @@ export default function BoardDashboard() {
     }
   });
 
+  const removeMemberMutation = useMutation({
+    mutationFn: (profileId) => boardAPI.removeMember(profileId),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['board-members']);
+    }
+  });
+
   const createNoticeMutation = useMutation({
     mutationFn: boardAPI.createNotice,
     onSuccess: () => {
@@ -270,6 +277,7 @@ export default function BoardDashboard() {
                     <th>Unit Number</th>
                     <th>Unit Type</th>
                     <th>Floor</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -280,6 +288,20 @@ export default function BoardDashboard() {
                       <td>{member.unitNumber}</td>
                       <td>{member.unitType}</td>
                       <td>{member.floorNumber}</td>
+                      <td>
+                        <button
+                          type="button"
+                          className="btn-small btn-danger"
+                          onClick={() => {
+                            if (window.confirm(`Remove ${member.fullName} from the society? Their unit will be vacated.`)) {
+                              removeMemberMutation.mutate(member.id);
+                            }
+                          }}
+                          disabled={removeMemberMutation.isLoading}
+                        >
+                          Remove
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
