@@ -57,6 +57,21 @@ CREATE TABLE society_board_members (
     UNIQUE(society_id, board_member_id)
 );
 
+-- Member Join Requests (member requests to join a society; board approves and assigns unit)
+CREATE TABLE member_join_requests (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    society_id UUID NOT NULL REFERENCES societies(id) ON DELETE CASCADE,
+    member_profile_id UUID NOT NULL REFERENCES user_profiles(id) ON DELETE CASCADE,
+    status VARCHAR(20) NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'APPROVED', 'REJECTED')),
+    requested_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    reviewed_by UUID REFERENCES user_profiles(id),
+    reviewed_at TIMESTAMP WITH TIME ZONE,
+    unit_number VARCHAR(50),
+    unit_type VARCHAR(10) CHECK (unit_type IN ('1BHK', '2BHK', '3BHK', '4BHK')),
+    floor_number INTEGER,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- ============================================
 -- MAINTENANCE PAYMENT FEATURE
 -- ============================================

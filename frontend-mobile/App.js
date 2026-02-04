@@ -10,6 +10,16 @@ import BillsScreen from './src/screens/BillsScreen';
 import VisitorsScreen from './src/screens/VisitorsScreen';
 import NoticesScreen from './src/screens/NoticesScreen';
 import ComplaintsScreen from './src/screens/ComplaintsScreen';
+import MemberRootScreen from './src/screens/MemberRootScreen';
+import BoardHomeScreen from './src/screens/BoardHomeScreen';
+import BoardJoinRequestsScreen from './src/screens/BoardJoinRequestsScreen';
+import BoardCreateNoticeScreen from './src/screens/BoardCreateNoticeScreen';
+import BoardGenerateBillsScreen from './src/screens/BoardGenerateBillsScreen';
+import BoardNoticesScreen from './src/screens/BoardNoticesScreen';
+import BoardMaintenanceScreen from './src/screens/BoardMaintenanceScreen';
+import BoardVisitorsScreen from './src/screens/BoardVisitorsScreen';
+import BoardComplaintsScreen from './src/screens/BoardComplaintsScreen';
+import AdminHomeScreen from './src/screens/AdminHomeScreen';
 import { ActivityIndicator, View, StyleSheet } from 'react-native';
 
 const Stack = createStackNavigator();
@@ -24,9 +34,10 @@ function AuthStack() {
   );
 }
 
-function AppStack() {
+function MemberStack() {
   return (
     <Stack.Navigator>
+      <Stack.Screen name="MemberRoot" component={MemberRootScreen} options={{ title: 'Home', headerShown: false }} />
       <Stack.Screen name="Home" component={HomeScreen} options={{ title: 'Home' }} />
       <Stack.Screen name="Bills" component={BillsScreen} options={{ title: 'Maintenance Bills' }} />
       <Stack.Screen name="Visitors" component={VisitorsScreen} options={{ title: 'Visitor Passes' }} />
@@ -34,6 +45,42 @@ function AppStack() {
       <Stack.Screen name="Complaints" component={ComplaintsScreen} options={{ title: 'Complaints' }} />
     </Stack.Navigator>
   );
+}
+
+function BoardStack() {
+  return (
+    <Stack.Navigator>
+      <Stack.Screen name="BoardHome" component={BoardHomeScreen} options={{ title: 'Board' }} />
+      <Stack.Screen name="BoardJoinRequests" component={BoardJoinRequestsScreen} options={{ title: 'Member requests' }} />
+      <Stack.Screen name="BoardCreateNotice" component={BoardCreateNoticeScreen} options={{ title: 'Create notice' }} />
+      <Stack.Screen name="BoardGenerateBills" component={BoardGenerateBillsScreen} options={{ title: 'Generate bills' }} />
+      <Stack.Screen name="BoardNotices" component={BoardNoticesScreen} options={{ title: 'Notices' }} />
+      <Stack.Screen name="BoardMaintenance" component={BoardMaintenanceScreen} options={{ title: 'Maintenance' }} />
+      <Stack.Screen name="BoardVisitors" component={BoardVisitorsScreen} options={{ title: 'Visitors' }} />
+      <Stack.Screen name="BoardComplaints" component={BoardComplaintsScreen} options={{ title: 'Complaints' }} />
+    </Stack.Navigator>
+  );
+}
+
+function AdminStack() {
+  return (
+    <Stack.Navigator>
+      <Stack.Screen name="AdminHome" component={AdminHomeScreen} options={{ title: 'Admin' }} />
+    </Stack.Navigator>
+  );
+}
+
+function AppStack() {
+  const { user } = useAuth();
+  const role = user?.role || 'MEMBER';
+
+  if (role === 'SUPER_ADMIN') {
+    return <AdminStack />;
+  }
+  if (role === 'BOARD_MEMBER') {
+    return <BoardStack />;
+  }
+  return <MemberStack />;
 }
 
 function RootNavigator() {

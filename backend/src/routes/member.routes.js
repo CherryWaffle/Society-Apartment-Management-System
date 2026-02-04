@@ -48,6 +48,206 @@ async function getMemberSocietyAndUnit(userId) {
 }
 
 /**
+ * GET /api/member/status
+ * Returns whether member is assigned to a society/unit (for showing Join Society vs Home)
+ */
+router.get('/status', async (req, res) => {
+  try {
+    const { societyId, unitId } = await getMemberSocietyAndUnit(req.user.id);
+    if (!societyId || !unitId) {
+      return res.json({ hasUnit: false, societyName: null });
+    }
+    const { data: society } = await supabaseAdmin
+      .from('societies')
+      .select('name')
+      .eq('id', societyId)
+      .single();
+    return res.json({
+      hasUnit: true,
+      societyName: society?.name || null
+    });
+  } catch (error) {
+    console.error('Member status error:', error);
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Failed to get status'
+    });
+  }
+});
+
+/**
+ * GET /api/member/available-societies
+ * List societies that member can request to join (all societies; member can request one)
+ */
+router.get('/available-societies', async (req, res) => {
+  try {
+    const { data: societies, error } = await supabaseAdmin
+      .from('societies')
+      .select('id, name, address, city, pincode, total_units')
+      .order('name');
+
+    if (error) throw error;
+
+    res.json({ societies: societies || [] });
+  } catch (error) {
+    console.error('List available societies error:', error);
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Failed to fetch societies'
+    });
+  }
+});
+
+/**
+ * POST /api/member/join-requests
+ * Request to join a society
+ */
+router.post('/join-requests', async (req, res) => {
+  try {
+    const { societyId } = req.body;
+    if (!societyId) {
+      return res.status(400).json({
+        error: 'Validation Error',
+        message: 'societyId is required'
+      });
+    }
+
+    const { data: profile } = await supabaseAdmin
+      .from('user_profiles')
+      .select('id')
+      .eq('user_id', req.user.id)
+      .single();
+
+    if (!profile) {
+      return res.status(404).json({
+        error: 'Not Found',
+        message: 'Profile not found'
+      });
+    }
+
+    const { data: society } = await supabaseAdmin
+      .from('societies')
+      .select('id')
+      .eq('id', societyId)
+      .single();
+
+    if (!society) {
+      return res.status(404).json({
+        error: 'Not Found',
+        message: 'Society not found'
+      });
+    }
+
+    const { data: existing } = await supabaseAdmin
+      .from('member_join_requests')
+      .select('id, status')
+      .eq('society_id', societyId)
+      .eq('member_profile_id', profile.id)
+      .single();
+
+    if (existing) {
+      if (existing.status === 'PENDING') {
+        return res.status(400).json({
+          error: 'Bad Request',
+          message: 'You already have a pending request for this society'
+        });
+      }
+      if (existing.status === 'APPROVED') {
+        return res.status(400).json({
+          error: 'Bad Request',
+          message: 'You are already a member of this society'
+        });
+      }
+    }
+
+    const { data: request, error: insertError } = await supabaseAdmin
+      .from('member_join_requests')
+      .insert({
+        society_id: societyId,
+        member_profile_id: profile.id,
+        status: 'PENDING'
+      })
+      .select()
+      .single();
+
+    if (insertError) {
+      if (insertError.code === '23505') {
+        return res.status(400).json({
+          error: 'Bad Request',
+          message: 'You already have a request for this society'
+        });
+      }
+      throw insertError;
+    }
+
+    res.status(201).json({
+      id: request.id,
+      societyId: request.society_id,
+      status: request.status,
+      requestedAt: request.requested_at
+    });
+  } catch (error) {
+    console.error('Create join request error:', error);
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Failed to create join request'
+    });
+  }
+});
+
+/**
+ * GET /api/member/join-requests
+ * List my join requests
+ */
+router.get('/join-requests', async (req, res) => {
+  try {
+    const { data: profile } = await supabaseAdmin
+      .from('user_profiles')
+      .select('id')
+      .eq('user_id', req.user.id)
+      .single();
+
+    if (!profile) {
+      return res.json({ requests: [] });
+    }
+
+    const { data: requests, error } = await supabaseAdmin
+      .from('member_join_requests')
+      .select(`
+        id,
+        society_id,
+        status,
+        requested_at,
+        reviewed_at,
+        societies ( id, name, address, city )
+      `)
+      .eq('member_profile_id', profile.id)
+      .order('requested_at', { ascending: false });
+
+    if (error) throw error;
+
+    const list = (requests || []).map((r) => ({
+      id: r.id,
+      societyId: r.society_id,
+      societyName: r.societies?.name,
+      societyAddress: r.societies?.address,
+      societyCity: r.societies?.city,
+      status: r.status,
+      requestedAt: r.requested_at,
+      reviewedAt: r.reviewed_at
+    }));
+
+    res.json({ requests: list });
+  } catch (error) {
+    console.error('List join requests error:', error);
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Failed to fetch join requests'
+    });
+  }
+});
+
+/**
  * GET /api/member/bills
  * Get own maintenance bills
  */

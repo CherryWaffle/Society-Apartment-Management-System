@@ -8,6 +8,12 @@ export default function BoardDashboard() {
   const { user, logout } = useAuth();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('overview');
+  const [showNoticeModal, setShowNoticeModal] = useState(false);
+  const [showBillsModal, setShowBillsModal] = useState(false);
+  const [approveRequestId, setApproveRequestId] = useState(null);
+  const [approveForm, setApproveForm] = useState({ unitNumber: '', unitType: '2BHK', floorNumber: 0 });
+  const [noticeForm, setNoticeForm] = useState({ title: '', content: '', category: 'GENERAL', priority: 'MEDIUM' });
+  const [billsForm, setBillsForm] = useState({ month: new Date().getMonth() + 1, year: new Date().getFullYear(), dueDate: '' });
 
   const { data: society, error: societyError, isError: societyIsError } = useQuery({
     queryKey: ['board-society'],
@@ -16,6 +22,15 @@ export default function BoardDashboard() {
       return res.data;
     },
     retry: false
+  });
+
+  const { data: joinRequestsData } = useQuery({
+    queryKey: ['board-join-requests'],
+    queryFn: async () => {
+      const res = await boardAPI.listJoinRequests();
+      return res.data;
+    },
+    enabled: (activeTab === 'requests' && !!society) || !!approveRequestId
   });
 
   const { data: members } = useQuery({
@@ -77,6 +92,44 @@ export default function BoardDashboard() {
     }
   });
 
+  const approveJoinRequestMutation = useMutation({
+    mutationFn: ({ id, data }) => boardAPI.approveJoinRequest(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['board-join-requests']);
+      queryClient.invalidateQueries(['board-members']);
+      setApproveRequestId(null);
+      setApproveForm({ unitNumber: '', unitType: '2BHK', floorNumber: 0 });
+    }
+  });
+
+  const rejectJoinRequestMutation = useMutation({
+    mutationFn: (id) => boardAPI.rejectJoinRequest(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['board-join-requests']);
+      setApproveRequestId(null);
+    }
+  });
+
+  const createNoticeMutation = useMutation({
+    mutationFn: boardAPI.createNotice,
+    onSuccess: () => {
+      queryClient.invalidateQueries(['board-notices']);
+      setShowNoticeModal(false);
+      setNoticeForm({ title: '', content: '', category: 'GENERAL', priority: 'MEDIUM' });
+    }
+  });
+
+  const generateBillsMutation = useMutation({
+    mutationFn: boardAPI.generateMaintenance,
+    onSuccess: () => {
+      queryClient.invalidateQueries(['board-maintenance']);
+      setShowBillsModal(false);
+      setBillsForm({ month: new Date().getMonth() + 1, year: new Date().getFullYear(), dueDate: '' });
+    }
+  });
+
+  const joinRequests = joinRequestsData?.requests ?? [];
+
   return (
     <div className="dashboard">
       <header className="dashboard-header">
@@ -94,6 +147,12 @@ export default function BoardDashboard() {
             onClick={() => setActiveTab('overview')}
           >
             Overview
+          </button>
+          <button
+            className={activeTab === 'requests' ? 'tab active' : 'tab'}
+            onClick={() => setActiveTab('requests')}
+          >
+            Member requests
           </button>
           <button
             className={activeTab === 'members' ? 'tab active' : 'tab'}
@@ -159,6 +218,48 @@ export default function BoardDashboard() {
             </div>
           )}
 
+          {activeTab === 'requests' && !societyIsError && (
+            <div className="table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Phone</th>
+                    <th>Requested at</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {joinRequests.length === 0 && (
+                    <tr><td colSpan={4} style={{ textAlign: 'center', padding: 24 }}>No pending requests</td></tr>
+                  )}
+                  {joinRequests.map((req) => (
+                    <tr key={req.id}>
+                      <td>{req.memberName}</td>
+                      <td>{req.memberPhone}</td>
+                      <td>{req.requestedAt ? new Date(req.requestedAt).toLocaleString() : '—'}</td>
+                      <td>
+                        <button
+                          onClick={() => setApproveRequestId(req.id)}
+                          className="btn-small btn-success"
+                        >
+                          Approve
+                        </button>
+                        <button
+                          onClick={() => rejectJoinRequestMutation.mutate(req.id)}
+                          className="btn-small btn-danger"
+                          disabled={rejectJoinRequestMutation.isLoading}
+                        >
+                          Reject
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
           {activeTab === 'members' && !societyIsError && (
             <div className="table-container">
               <table>
@@ -187,7 +288,13 @@ export default function BoardDashboard() {
           )}
 
           {activeTab === 'maintenance' && !societyIsError && (
-            <div className="table-container">
+            <div>
+              <div style={{ marginBottom: 16 }}>
+                <button onClick={() => setShowBillsModal(true)} className="btn-primary">
+                  Generate maintenance bills
+                </button>
+              </div>
+              <div className="table-container">
               <table>
                 <thead>
                   <tr>
@@ -216,6 +323,7 @@ export default function BoardDashboard() {
                   ))}
                 </tbody>
               </table>
+              </div>
             </div>
           )}
 
@@ -273,6 +381,11 @@ export default function BoardDashboard() {
 
           {activeTab === 'notices' && !societyIsError && (
             <div>
+              <div style={{ marginBottom: 16 }}>
+                <button onClick={() => setShowNoticeModal(true)} className="btn-primary">
+                  Create notice
+                </button>
+              </div>
               {notices?.map((notice) => (
                 <div key={notice.id} className="notice-card">
                   <h3>{notice.title}</h3>
@@ -319,6 +432,169 @@ export default function BoardDashboard() {
           )}
         </div>
       </div>
+
+      {/* Approve join request modal */}
+      {approveRequestId && (
+        <div className="modal-overlay" onClick={() => setApproveRequestId(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h3>Assign unit</h3>
+            <p style={{ marginBottom: 12, color: '#666' }}>Enter unit details for the approved member.</p>
+            <div className="form-group">
+              <label>Unit number</label>
+              <input
+                type="text"
+                value={approveForm.unitNumber}
+                onChange={(e) => setApproveForm((f) => ({ ...f, unitNumber: e.target.value }))}
+                placeholder="e.g. 101"
+              />
+            </div>
+            <div className="form-group">
+              <label>Unit type</label>
+              <select
+                value={approveForm.unitType}
+                onChange={(e) => setApproveForm((f) => ({ ...f, unitType: e.target.value }))}
+              >
+                <option value="1BHK">1BHK</option>
+                <option value="2BHK">2BHK</option>
+                <option value="3BHK">3BHK</option>
+                <option value="4BHK">4BHK</option>
+              </select>
+            </div>
+            <div className="form-group">
+              <label>Floor number</label>
+              <input
+                type="number"
+                min={0}
+                value={approveForm.floorNumber}
+                onChange={(e) => setApproveForm((f) => ({ ...f, floorNumber: parseInt(e.target.value, 10) || 0 }))}
+              />
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+              <button
+                className="btn-primary"
+                onClick={() => approveJoinRequestMutation.mutate({ id: approveRequestId, data: approveForm })}
+                disabled={!approveForm.unitNumber || approveJoinRequestMutation.isLoading}
+              >
+                {approveJoinRequestMutation.isLoading ? 'Saving…' : 'Approve & assign'}
+              </button>
+              <button className="btn-secondary" onClick={() => setApproveRequestId(null)}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create notice modal */}
+      {showNoticeModal && (
+        <div className="modal-overlay" onClick={() => setShowNoticeModal(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h3>Create notice</h3>
+            <div className="form-group">
+              <label>Title</label>
+              <input
+                type="text"
+                value={noticeForm.title}
+                onChange={(e) => setNoticeForm((f) => ({ ...f, title: e.target.value }))}
+                placeholder="Notice title"
+              />
+            </div>
+            <div className="form-group">
+              <label>Content</label>
+              <textarea
+                rows={4}
+                value={noticeForm.content}
+                onChange={(e) => setNoticeForm((f) => ({ ...f, content: e.target.value }))}
+                placeholder="Notice content"
+              />
+            </div>
+            <div className="form-group">
+              <label>Category</label>
+              <select
+                value={noticeForm.category}
+                onChange={(e) => setNoticeForm((f) => ({ ...f, category: e.target.value }))}
+              >
+                <option value="GENERAL">General</option>
+                <option value="MAINTENANCE">Maintenance</option>
+                <option value="EVENT">Event</option>
+                <option value="EMERGENCY">Emergency</option>
+              </select>
+            </div>
+            <div className="form-group">
+              <label>Priority</label>
+              <select
+                value={noticeForm.priority}
+                onChange={(e) => setNoticeForm((f) => ({ ...f, priority: e.target.value }))}
+              >
+                <option value="LOW">Low</option>
+                <option value="MEDIUM">Medium</option>
+                <option value="HIGH">High</option>
+              </select>
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+              <button
+                className="btn-primary"
+                onClick={() => createNoticeMutation.mutate(noticeForm)}
+                disabled={!noticeForm.title || noticeForm.content.length < 10 || createNoticeMutation.isLoading}
+              >
+                {createNoticeMutation.isLoading ? 'Creating…' : 'Create notice'}
+              </button>
+              <button className="btn-secondary" onClick={() => setShowNoticeModal(false)}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Generate bills modal */}
+      {showBillsModal && (
+        <div className="modal-overlay" onClick={() => setShowBillsModal(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h3>Generate maintenance bills</h3>
+            <p style={{ marginBottom: 12, color: '#666' }}>Bills will be created for all occupied units for the selected month.</p>
+            <div className="form-group">
+              <label>Month</label>
+              <select
+                value={billsForm.month}
+                onChange={(e) => setBillsForm((f) => ({ ...f, month: parseInt(e.target.value, 10) }))}
+              >
+                {[1,2,3,4,5,6,7,8,9,10,11,12].map((m) => (
+                  <option key={m} value={m}>{new Date(2000, m - 1).toLocaleString('default', { month: 'long' })}</option>
+                ))}
+              </select>
+            </div>
+            <div className="form-group">
+              <label>Year</label>
+              <input
+                type="number"
+                min={2020}
+                max={2030}
+                value={billsForm.year}
+                onChange={(e) => setBillsForm((f) => ({ ...f, year: parseInt(e.target.value, 10) || new Date().getFullYear() }))}
+              />
+            </div>
+            <div className="form-group">
+              <label>Due date</label>
+              <input
+                type="date"
+                value={billsForm.dueDate}
+                onChange={(e) => setBillsForm((f) => ({ ...f, dueDate: e.target.value }))}
+              />
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+              <button
+                className="btn-primary"
+                onClick={() => generateBillsMutation.mutate({
+                  month: billsForm.month,
+                  year: billsForm.year,
+                  dueDate: billsForm.dueDate || new Date(billsForm.year, billsForm.month, 0).toISOString().slice(0, 10)
+                })}
+                disabled={!billsForm.dueDate || generateBillsMutation.isLoading}
+              >
+                {generateBillsMutation.isLoading ? 'Generating…' : 'Generate bills'}
+              </button>
+              <button className="btn-secondary" onClick={() => setShowBillsModal(false)}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

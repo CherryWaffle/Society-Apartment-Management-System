@@ -36,6 +36,12 @@ const updateComplaintStatusSchema = Joi.object({
   resolutionNotes: Joi.string().optional()
 });
 
+const approveJoinRequestSchema = Joi.object({
+  unitNumber: Joi.string().required(),
+  unitType: Joi.string().valid('1BHK', '2BHK', '3BHK', '4BHK').required(),
+  floorNumber: Joi.number().integer().min(0).required()
+});
+
 // Helper: Get board member's society ID
 async function getBoardMemberSociety(userId) {
   const { data: profile } = await supabaseAdmin
@@ -260,6 +266,217 @@ router.post('/members', async (req, res) => {
     res.status(500).json({
       error: 'Internal Server Error',
       message: 'Failed to add member'
+    });
+  }
+});
+
+/**
+ * GET /api/board/join-requests
+ * List pending member join requests for board's society
+ */
+router.get('/join-requests', async (req, res) => {
+  try {
+    const societyId = await getBoardMemberSociety(req.user.id);
+    if (!societyId) {
+      return res.status(404).json({
+        error: 'Not Found',
+        message: 'Society not found for this board member'
+      });
+    }
+
+    const { data: requests, error } = await supabaseAdmin
+      .from('member_join_requests')
+      .select(`
+        id,
+        status,
+        requested_at,
+        user_profiles!member_join_requests_member_profile_id_fkey (
+          id,
+          full_name,
+          phone
+        )
+      `)
+      .eq('society_id', societyId)
+      .eq('status', 'PENDING')
+      .order('requested_at', { ascending: false });
+
+    if (error) throw error;
+
+    const list = (requests || []).map((r) => ({
+      id: r.id,
+      status: r.status,
+      requestedAt: r.requested_at,
+      memberName: r.user_profiles?.full_name,
+      memberPhone: r.user_profiles?.phone,
+      memberProfileId: r.user_profiles?.id
+    }));
+
+    res.json({ requests: list });
+  } catch (error) {
+    console.error('List join requests error:', error);
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Failed to fetch join requests'
+    });
+  }
+});
+
+/**
+ * PUT /api/board/join-requests/:id/approve
+ * Approve join request and assign member to a unit
+ */
+router.put('/join-requests/:id/approve', async (req, res) => {
+  try {
+    const { error, value } = approveJoinRequestSchema.validate(req.body);
+    if (error) {
+      return res.status(400).json({
+        error: 'Validation Error',
+        message: error.details[0].message
+      });
+    }
+
+    const { id } = req.params;
+    const societyId = await getBoardMemberSociety(req.user.id);
+    if (!societyId) {
+      return res.status(404).json({
+        error: 'Not Found',
+        message: 'Society not found'
+      });
+    }
+
+    const { data: joinRequest } = await supabaseAdmin
+      .from('member_join_requests')
+      .select('id, member_profile_id')
+      .eq('id', id)
+      .eq('society_id', societyId)
+      .eq('status', 'PENDING')
+      .single();
+
+    if (!joinRequest) {
+      return res.status(404).json({
+        error: 'Not Found',
+        message: 'Join request not found or already processed'
+      });
+    }
+
+    const { unitNumber, unitType, floorNumber } = value;
+
+    let unit;
+    const { data: existingUnit } = await supabaseAdmin
+      .from('society_units')
+      .select('id')
+      .eq('society_id', societyId)
+      .eq('unit_number', unitNumber)
+      .single();
+
+    if (existingUnit) {
+      const { data: updated } = await supabaseAdmin
+        .from('society_units')
+        .update({
+          member_id: joinRequest.member_profile_id,
+          is_occupied: true
+        })
+        .eq('id', existingUnit.id)
+        .select()
+        .single();
+      unit = updated;
+    } else {
+      const { data: newUnit, error: unitError } = await supabaseAdmin
+        .from('society_units')
+        .insert({
+          society_id: societyId,
+          unit_number: unitNumber,
+          unit_type: unitType,
+          floor_number: floorNumber,
+          member_id: joinRequest.member_profile_id,
+          is_occupied: true
+        })
+        .select()
+        .single();
+      if (unitError) throw unitError;
+      unit = newUnit;
+    }
+
+    const { data: profile } = await supabaseAdmin
+      .from('user_profiles')
+      .select('id')
+      .eq('user_id', req.user.id)
+      .single();
+
+    await supabaseAdmin
+      .from('member_join_requests')
+      .update({
+        status: 'APPROVED',
+        reviewed_by: profile.id,
+        reviewed_at: new Date().toISOString(),
+        unit_number: unitNumber,
+        unit_type: unitType,
+        floor_number: floorNumber
+      })
+      .eq('id', id);
+
+    res.json({
+      message: 'Member approved and assigned to unit',
+      unitNumber,
+      unitType,
+      floorNumber
+    });
+  } catch (error) {
+    console.error('Approve join request error:', error);
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Failed to approve join request'
+    });
+  }
+});
+
+/**
+ * PUT /api/board/join-requests/:id/reject
+ * Reject join request
+ */
+router.put('/join-requests/:id/reject', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const societyId = await getBoardMemberSociety(req.user.id);
+    if (!societyId) {
+      return res.status(404).json({
+        error: 'Not Found',
+        message: 'Society not found'
+      });
+    }
+
+    const { data: profile } = await supabaseAdmin
+      .from('user_profiles')
+      .select('id')
+      .eq('user_id', req.user.id)
+      .single();
+
+    const { data: updated, error: updateError } = await supabaseAdmin
+      .from('member_join_requests')
+      .update({
+        status: 'REJECTED',
+        reviewed_by: profile.id,
+        reviewed_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .eq('society_id', societyId)
+      .eq('status', 'PENDING')
+      .select()
+      .single();
+
+    if (updateError || !updated) {
+      return res.status(404).json({
+        error: 'Not Found',
+        message: 'Join request not found or already processed'
+      });
+    }
+
+    res.json({ message: 'Join request rejected', id: updated.id });
+  } catch (error) {
+    console.error('Reject join request error:', error);
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Failed to reject join request'
     });
   }
 });

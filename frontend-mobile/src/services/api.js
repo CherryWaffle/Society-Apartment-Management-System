@@ -80,6 +80,13 @@ export const authAPI = {
 };
 
 export const memberAPI = {
+  getStatus: () => request('/member/status'),
+  getAvailableSocieties: () => request('/member/available-societies'),
+  createJoinRequest: (societyId) => request('/member/join-requests', {
+    method: 'POST',
+    body: JSON.stringify({ societyId }),
+  }),
+  listJoinRequests: () => request('/member/join-requests'),
   getBills: (params) => request('/member/bills', { params }),
   getBillDetails: (billId) => request(`/member/bills/${billId}`),
   payBill: (billId, data) => request(`/member/bills/${billId}/pay`, {
@@ -100,6 +107,42 @@ export const memberAPI = {
   }),
   listComplaints: (params) => request('/member/complaints', { params }),
   getComplaintDetails: (complaintId) => request(`/member/complaints/${complaintId}`),
+};
+
+export const boardAPI = {
+  getSociety: () => request('/board/society'),
+  listJoinRequests: () => request('/board/join-requests'),
+  approveJoinRequest: (id, data) => request(`/board/join-requests/${id}/approve`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  }),
+  rejectJoinRequest: (id) => request(`/board/join-requests/${id}/reject`, {
+    method: 'PUT',
+  }),
+  createNotice: (data) => request('/board/notices', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
+  generateMaintenance: (data) => request('/board/maintenance/generate', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
+  listMembers: () => request('/board/members'),
+  listMaintenance: (params) => request('/board/maintenance', { params }),
+  listVisitors: (params) => request('/board/visitors', { params }),
+  listNotices: (params) => request('/board/notices', { params }),
+  listComplaints: (params) => request('/board/complaints', { params }),
+  approveVisitor: (visitorId) => request(`/board/visitors/${visitorId}/approve`, { method: 'PUT' }),
+  rejectVisitor: (visitorId) => request(`/board/visitors/${visitorId}/reject`, { method: 'PUT' }),
+};
+
+export const adminAPI = {
+  listSocieties: () => request('/admin/societies'),
+  listBoardMembers: () => request('/admin/board-members'),
+  assignBoardMember: (societyId, data) => request(`/admin/societies/${societyId}/board-members`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
 };
 
 export default { request };
