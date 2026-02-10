@@ -53,7 +53,7 @@ Create these test accounts for testing different features:
 - Assign board members to societies
 
 ### 2. Board Member Account
-- **Email**: `board@society.com`
+- **Email**: `oard@society.com`
 - **Password**: `Board123!`
 - **Full Name**: `Board Member`
 - **Phone**: `+1234567891`
