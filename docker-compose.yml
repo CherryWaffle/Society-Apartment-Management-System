@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: society-backend
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - CORS_ORIGIN=http://localhost:5173
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    command: npm run dev
+
+  frontend-web:
+    build:
+      context: ./frontend-web
+      dockerfile: Dockerfile
+    container_name: society-frontend-web
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=http://localhost:3000/api
+    volumes:
+      - ./frontend-web:/app
+      - /app/node_modules
+    command: npm run dev -- --host 0.0.0.0
+    depends_on:
+      - backend
+
+  frontend-mobile:
+    build:
+      context: ./frontend-mobile
+      dockerfile: Dockerfile
+    container_name: society-frontend-mobile
+    ports:
+      - "8081:8081"
+      - "19000-19002:19000-19002"
+    environment:
+      - REACT_NATIVE_PACKAGER_HOSTNAME=localhost
+      - API_URL=http://localhost:3000/api
+    volumes:
+      - ./frontend-mobile:/app
+      - /app/node_modules
+    command: npm run start
+    depends_on:
+      - backend
