@@ -1,0 +1,10 @@
+node_modules
+.npm
+dist
+build
+.expo
+.env
+.git
+.github
+society-apartment-management-system.apk
+ society-apartment-management-system.aab
