@@ -42,8 +42,8 @@ services:
       - "8081:8081"
       - "19000-19002:19000-19002"
     environment:
-      - REACT_NATIVE_PACKAGER_HOSTNAME=localhost
-      - API_URL=http://localhost:3000/api
+      - REACT_NATIVE_PACKAGER_HOSTNAME=10.185.148.1
+      - API_URL=http://10.185.148.1:3000/api
     volumes:
       - ./frontend-mobile:/app
       - /app/node_modules
