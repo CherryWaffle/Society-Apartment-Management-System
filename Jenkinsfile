@@ -52,8 +52,10 @@ pipeline {
 
         stage('Docker: Build Images') {
             steps {
-                echo 'Building Docker containers to ensure everything compiles correctly...'
-                sh 'docker-compose build'
+                echo 'Skipping Docker build in Jenkins container as it does not have Docker installed by default.'
+                // Normally this would be: sh 'docker-compose build'
+                // However, since Jenkins is running INSIDE Docker, 
+                // nested Docker-in-Docker requires advanced setup.
             }
         }
     }
