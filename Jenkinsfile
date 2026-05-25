@@ -1,6 +1,10 @@
 pipeline {
     agent any
 
+    tools {
+        nodejs 'node20'
+    }
+
     environment {
         // You can set global environment variables here
         NODE_ENV = 'development'
